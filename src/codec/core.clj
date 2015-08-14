@@ -143,6 +143,47 @@
       (length-bs l)
       (seq (.getBytes str)))))
 
+(defn encode-octet-string [bs]
+  (concat
+    (identifier class-universal is-primitive tag-octet-string)
+    (length-bs (count bs))
+    (seq bs)))
+
+(defn encode-sequence [& es]
+  (concat
+    (identifier class-universal is-constructed tag-sequence)
+    (let [bs (apply concat es)]
+      (concat
+        (length-bs (count bs))
+        bs))))
+
+(defn encode-set [& encoded]
+  (let [bs (apply concat encoded)]
+    (concat
+      (identifier class-universal is-constructed tag-set)
+      (length-bs (count bs))
+      bs)))
+
+(defn lex< [a b]
+  (cond
+    (empty? a) (not (empty? b))
+    (empty? b) false
+    (< (first a) (first b)) true
+    (= (first a) (first b)) (recur (rest a) (rest b))
+    :true false))
+
+;; as encode-set, but order is lexicographic
+(defn encode-set-of [& encoded]
+  (let [bs (apply concat (sort lex< encoded))]
+    (concat
+      (identifier class-universal is-constructed tag-set)
+      (length-bs (count bs))
+      bs)))
+
+(defn encode-explicit [n & es]
+  (cons (+ 0xa0 n)
+    (let [bs (apply concat es)]
+      (concat (length-bs (count bs)) bs))))
 
 
 

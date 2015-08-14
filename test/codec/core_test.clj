@@ -34,6 +34,32 @@
     (is (= (encode-ia5string "Hello, world!")
            [22 13 72 101 108 108 111 44 32 119 111 114 108 100 33]))))
 
+(deftest ostring
+  (testing "octet string encoding"
+    (is (= (encode-octet-string (list 0 1 2 127 128 255))
+           [4 6 0 1 2 127 128 255]))))
+
+(deftest tsequence
+  (testing "sequence encoding"
+    (is (= (encode-sequence encode-null encode-null encode-null)
+           [48 6 5 0 5 0 5 0]))))
+
+(deftest tset
+  (testing "set encoding"
+    (is (= (encode-set (encode-integer 3) (encode-integer 1) (encode-integer 2))
+           [49 9 2 1 3 2 1 1 2 1 2]))))
+
+(deftest tsetof
+  (testing "set-of encoding"
+    (is (= (encode-set-of (encode-integer 3) (encode-integer 1) (encode-integer 2))
+           [49 9 2 1 1 2 1 2 2 1 3]))))
+
+(deftest expl1
+  (testing "explicit encoding"
+    (is (= (encode-explicit 1 (encode-sequence (encode-object-identifier (list 1 2 3)) (encode-integer 42) encode-null))
+           [161 11 48 9 6 2 42 3 2 1 42 5 0]))))
+
+
 (deftest b64-1
   (testing "base64 blank"
     (is (= (base64-decode "")
