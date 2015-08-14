@@ -59,6 +59,31 @@
     (is (= (encode-explicit 1 (encode-sequence (encode-object-identifier (list 1 2 3)) (encode-integer 42) encode-null))
            [161 11 48 9 6 2 42 3 2 1 42 5 0]))))
 
+(deftest utctime
+  (testing "utctime encoding"
+    (is (= (encode-utc-time "200630093839Z")
+           [23 13 50 48 48 54 51 48 48 57 51 56 51 57 90]))))
+
+(deftest pritable
+  (testing "printable string encodind"
+    (is (= (encode-printable-string "Clojutre")
+           [19 8 67 108 111 106 117 116 114 101]))))
+
+(deftest asn-dsl-1
+  (testing "asn dsl"
+    (is (= [48 45 6 3 42 3 4 160 16 49 6 2 1 2 2 1 1 49 6 2 1 1 2 1 2 19 3 102 111 111 23 13 50 48 48 54 51 48 48 57 51 56 51 57 90 5 0]
+           (asn1-encode
+            [:sequence
+              [:identifier 1 2 3 4]
+              [:explicit 0
+                [:set 2 1]
+                [:set-of 2 1]]
+              "foo"
+              [:utctime "200630093839Z"]
+              ()])))))
+
+
+
 
 (deftest b64-1
   (testing "base64 blank"

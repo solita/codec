@@ -2,7 +2,7 @@
 
 
 ;;;
-;;; ASN.1 encoding
+;;; ASN.1 (DER) encoding
 ;;;
 
 (defn to-7bit-digits [n]
@@ -143,6 +143,13 @@
       (length-bs l)
       (seq (.getBytes str)))))
 
+(defn encode-printable-string [str]
+  (let [l (count str)]
+    (concat
+      (identifier class-universal is-primitive tag-printable-string)
+      (length-bs l)
+      (seq (.getBytes str)))))
+
 (defn encode-octet-string [bs]
   (concat
     (identifier class-universal is-primitive tag-octet-string)
@@ -184,6 +191,54 @@
   (cons (+ 0xa0 n)
     (let [bs (apply concat es)]
       (concat (length-bs (count bs)) bs))))
+
+(defn encode-utc-time [timestr]
+  (concat
+    (identifier class-universal is-primitive tag-utc-time)
+    (length-bs (count timestr))
+    (seq (.getBytes timestr))))
+
+
+(defn asn1-encode [node]
+  (cond
+    (vector? node)
+      (let [op (first node)]
+        (cond
+          (= op :sequence)
+            (apply encode-sequence
+              (map asn1-encode (rest node)))
+          (= op :set)
+            (apply encode-set (map asn1-encode (rest node)))
+          (= op :set-of)
+            (apply encode-set-of (map asn1-encode (rest node)))
+          (= op :explicit)
+            (apply encode-explicit (cons (nth node 1) (map asn1-encode (rest (rest node)))))
+          (= op :ia5string)
+            (if (= (count node) 2)
+              (encode-ia5string (nth node 1))
+              (throw (Exception. ":ia5string wants one string element")))
+          (= op :printable-string)
+            (if (= (count node) 2)
+              (encode-printable-string (nth node 1))
+              (throw (Exception. ":printable-string wants one string element")))
+          (= op :identifier)
+            (encode-object-identifier (rest node))
+          (= op :utctime)
+            (if (= (count node) 2)
+              (encode-utc-time (nth node 1))
+              (throw (Exception. ":utctime wants one string element")))
+          :true
+            (throw (Exception. "Unknown ASN.1 operator"))))
+    (integer? node)
+      (encode-integer node)
+    (string? node)
+      (encode-printable-string node)
+    (= node :null)
+      encode-null
+    (= node ())
+      encode-null
+    :true
+      (throw (Exception. "Unknown ASN.1 encoder node type: " node))))
 
 
 
