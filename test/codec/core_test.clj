@@ -1,3 +1,4 @@
+;;; ASN.1 encoding / known values
 
 (ns codec.core-test
   (:require [clojure.test :refer :all]
@@ -94,6 +95,20 @@
     (is (= [3 7 0 2 4 66 58 53 199]
           (asn1-encode
               [:encapsulated-bitstring 1111111111])))))
+
+;;; ASN.1 AST -> bytes -> AST' equality comparisons
+
+(deftest asn-rencode-1 (testing "asn-rencode 1" (is true (asn1-rencode 0))))
+(deftest asn-rencode-2 (testing "asn-rencode 1" (is true (asn1-rencode 127))))
+(deftest asn-rencode-3 (testing "asn-rencode 1" (is true (asn1-rencode 128))))
+(deftest asn-rencode-4 (testing "asn-rencode 1" (is true (asn1-rencode 255))))
+(deftest asn-rencode-5 (testing "asn-rencode 1" (is true (asn1-rencode 256))))
+(deftest asn-rencode-6 (testing "asn-rencode 1" (is true (asn1-rencode 65535))))
+(deftest asn-rencode-7 (testing "asn-rencode 1" (is true (asn1-rencode 65536))))
+(deftest asn-rencode-8 (testing "asn-rencode 1" (is true (asn1-rencode 11111111111111))))
+
+;;; Base64
+
 
 (deftest b64-1
   (testing "base64 blank"

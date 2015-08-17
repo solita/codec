@@ -1,6 +1,7 @@
 (ns codec.core)
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;,
 ;;;
 ;;; ASN.1 (DER) encoding
 ;;;
@@ -216,7 +217,6 @@
     (length-bs (count timestr))
     (seq (.getBytes timestr))))
 
-
 (defn asn1-encode [node]
   (cond
     (vector? node)
@@ -272,7 +272,114 @@
       (throw (Exception. "Unknown ASN.1 encoder node type: " node))))
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;,
+;;;
+;;; ASN.1 (DER) decoding
+;;;
 
+(defn parse-bignum [lst]
+   (loop [out 0 this (first lst) lst (rest lst)]
+      (cond
+         (nil? this)
+            (vector false "end of input" lst)
+         (= 128 (bit-and this 128))
+            ;; 7 more bits in this byte
+            (recur 
+               (bit-or (bit-shift-left out 7) (bit-and this 127))
+               (first lst) (rest lst))
+         :true
+            (vector true (bit-or (bit-shift-left out 7) this) lst))))
+
+;; parsers are lst → ok/bool value/reason rest-of-input
+(defn parse-identifier [tag tail]
+   (let
+      [class (bit-shift-right tag 6)
+       consp (bit-and (bit-shift-right tag 5) 1)
+       tagnum (bit-and tag 31)]
+      (if (= tagnum 31)
+         (let [[ok tagnum tailp] (parse-bignum tail)]
+            (if ok 
+               (vector true class consp tagnum tailp)
+               (vector false (list "bad bignum: " tagnum) tail)))
+         (vector true class consp tagnum tail))))
+
+(defn read-bytes [bs count]
+   (loop [bs bs count count out 0]
+      (if (= count 0)
+         (vector true out bs)
+         (let [hd (first bs)]
+            (if hd
+               (recur (rest bs) (- count 1) (bit-or (bit-shift-left out 8) hd))
+               (vector false "out of data" bs))))))
+         
+(defn parse-length [bs]
+   (let [n (first bs)]
+      (cond
+         (not n)
+            (vector false "out of data" bs)
+         (< n 128)
+            (vector true n (rest bs))
+         :true
+            (let [count (- n 128)]
+               (read-bytes bs count)))))
+
+(defn parse-integer [bs]
+   (let
+      [[ok nb bs] (parse-length bs)]
+      (if ok
+         (read-bytes bs nb)
+         (vector false (str "failed to get integer size: " nb) bs))))
+
+(defn decode [bs]
+    (let [tag (first bs)]
+      (if tag
+         (let [[ok class consp tagnum bs] (parse-identifier tag (rest bs))]
+            (if (= consp 0)
+               (if ok
+                  (cond
+                     (= tagnum tag-integer)
+                        ;; permissive: assumed universal
+                        (parse-integer bs)
+                     :true
+                        (vector false (str "Unknown identifier tag: " tagnum) bs))
+                  (vector false (str "Failed to read identifier: " class) bs))
+               (vector false "constructed incoding not allowed in DER" bs)))
+         (vector false "no input" bs))))
+
+(defn asn1-decode [bs]
+   (let [[ok value bs] (decode bs)]
+      (if ok
+         (do
+            (if (not (empty? bs))
+               (println "Warning: " (count bs) " bytes of trailing garbage ignored after ASN.1 decoding"))
+            value)
+         (do
+            (println "ERROR: ASN.1 decoding failed: " value)
+            nil))))
+
+;; for testing only
+(defn asn1-rencode [ast]
+   (let
+      [bs (asn1-encode ast)
+       astp (asn1-decode bs)]
+      (if (= ast astp)
+         true
+         (do
+            (println "IN:  " ast)
+            (println "OUT: " astp)
+            (println "ENCODED: " bs)
+            false))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;,
+;;;
+;;; ASN.1 AST utils
+;;;
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;,
 ;;;
 ;;; Quoted-printable
 ;;;
@@ -314,6 +421,7 @@
 
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;,
 ;;;
 ;;; Base64 decoder
 ;;;
@@ -408,3 +516,6 @@
     (throw
       (Exception. "invalid input to base64 encode"))))
 
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;,
