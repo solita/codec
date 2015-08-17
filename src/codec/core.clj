@@ -235,6 +235,14 @@
             (if (= (count node) 2)
               (encode-ia5string (nth node 1))
               (throw (Exception. ":ia5string wants one string element")))
+          (= op :octet-string)
+            (if (= (count node) 2)
+              (encode-octet-string (nth node 1))
+              (throw (Exception. ":octet-string wants one list element")))
+          (= op :bit-string)
+            (if (= (count node) 2)
+              (encode-bitstring (nth node 1))
+              (throw (Exception. ":bit-string wants one string element")))
           (= op :printable-string)
             (if (= (count node) 2)
               (encode-printable-string (nth node 1))
@@ -330,20 +338,59 @@
          (read-bytes bs nb)
          (vector false (str "failed to get integer size: " nb) bs))))
 
+(defn encode-octet-string [bs]
+  (concat
+    (identifier class-universal is-primitive tag-octet-string)
+    (length-bs (count bs))
+    (seq bs)))
+
+(defn grab [lst n]
+   (loop [lst lst n n out ()]
+      (cond
+         (= n 0)
+            (vector (reverse out) lst)
+         (empty? lst)
+            (vector false lst)
+         :true
+            (recur (rest lst) (- n 1) (cons (first lst) out)))))
+
 (defn decode [bs]
     (let [tag (first bs)]
       (if tag
          (let [[ok class consp tagnum bs] (parse-identifier tag (rest bs))]
-            (if (= consp 0)
-               (if ok
-                  (cond
-                     (= tagnum tag-integer)
-                        ;; permissive: assumed universal
-                        (parse-integer bs)
-                     :true
-                        (vector false (str "Unknown identifier tag: " tagnum) bs))
-                  (vector false (str "Failed to read identifier: " class) bs))
-               (vector false "constructed incoding not allowed in DER" bs)))
+            (if ok
+               (cond
+                  (and (= consp 0) (= tagnum tag-integer))
+                     ;; permissive: assumed universal
+                     (parse-integer bs)
+                  (and (= consp 0) (= tagnum tag-octet-string))
+                     (let [[ok len bs] (parse-length bs)]
+                        (if ok
+                           (let [[elems bs] (grab bs len)]
+                              (if elems
+                                 (vector true (vector :octet-string elems) bs)
+                                 (vector false "out of data reading octet string" bs)))
+                           (vector false len bs)))
+                  (= tagnum tag-sequence)
+                     (let [[ok len bs] (parse-length bs)]
+                        (if ok
+                           (let [[seqbs bs] (grab bs len)]
+                              (if seqbs
+                                 (loop [seqbs seqbs out ()]
+                                    (let [[ok val seqbsp] (decode seqbs)]
+                                       (cond
+                                          ok (recur seqbsp (cons val out))
+                                          (empty? seqbs)
+                                             (vector true (into [] (cons :sequence (reverse out))) bs)
+                                          :true
+                                             (vector false 
+                                                (str "error reading a sequence at position " (count out) ": " val)
+                                                seqbs))))
+                                 (vector false "out of data reading sequence length" bs)))
+                           (vector false "could not read sequence length" bs)))
+                  :true
+                     (vector false (str "Unknown identifier tag: " tagnum) bs))
+               (vector false (str "Failed to read identifier: " class) bs)))
          (vector false "no input" bs))))
 
 (defn asn1-decode [bs]

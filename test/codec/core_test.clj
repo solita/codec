@@ -1,3 +1,4 @@
+
 ;;; ASN.1 encoding / known values
 
 (ns codec.core-test
@@ -96,19 +97,31 @@
           (asn1-encode
               [:encapsulated-bitstring 1111111111])))))
 
+
 ;;; ASN.1 AST -> bytes -> AST' equality comparisons
 
 (deftest asn-rencode-1 (testing "asn-rencode 1" (is true (asn1-rencode 0))))
-(deftest asn-rencode-2 (testing "asn-rencode 1" (is true (asn1-rencode 127))))
-(deftest asn-rencode-3 (testing "asn-rencode 1" (is true (asn1-rencode 128))))
-(deftest asn-rencode-4 (testing "asn-rencode 1" (is true (asn1-rencode 255))))
-(deftest asn-rencode-5 (testing "asn-rencode 1" (is true (asn1-rencode 256))))
-(deftest asn-rencode-6 (testing "asn-rencode 1" (is true (asn1-rencode 65535))))
-(deftest asn-rencode-7 (testing "asn-rencode 1" (is true (asn1-rencode 65536))))
-(deftest asn-rencode-8 (testing "asn-rencode 1" (is true (asn1-rencode 11111111111111))))
+(deftest asn-rencode-2 (testing "asn-rencode 2" (is true (asn1-rencode 127))))
+(deftest asn-rencode-3 (testing "asn-rencode 3" (is true (asn1-rencode 128))))
+(deftest asn-rencode-4 (testing "asn-rencode 4" (is true (asn1-rencode 255))))
+(deftest asn-rencode-5 (testing "asn-rencode 5" (is true (asn1-rencode 256))))
+(deftest asn-rencode-6 (testing "asn-rencode 6" (is true (asn1-rencode 65535))))
+(deftest asn-rencode-7 (testing "asn-rencode 7" (is true (asn1-rencode 65536))))
+(deftest asn-rencode-8 (testing "asn-rencode 8" (is true (asn1-rencode 11111111111111))))
+
+(deftest asn-rencode-9 (testing "asn-rencode 9" (is true (asn1-rencode [:octet-string (list)]))))
+(deftest asn-rencode-10 (testing "asn-rencode 10" (is true (asn1-rencode [:octet-string (list 1)]))))
+(deftest asn-rencode-11 (testing "asn-rencode 11" (is true (asn1-rencode [:octet-string (list 0 1 1 0 1 1 1 0 0 1 0 1 1 1 0 1 1 1 1 0 0 0)]))))
+
+(deftest asn-rencode-12 (testing "asn-rencode 12" (is true (asn1-rencode [:sequence]))))
+(deftest asn-rencode-13 (testing "asn-rencode 13" (is true (asn1-rencode [:sequence 1]))))
+(deftest asn-rencode-14 (testing "asn-rencode 14" (is true (asn1-rencode [:sequence 1 2]))))
+(deftest asn-rencode-15 (testing "asn-rencode 15" (is true (asn1-rencode [:sequence 1 2 3 4 5 6]))))
+(deftest asn-rencode-15 (testing "asn-rencode 15" (is true (asn1-rencode [:sequence [:sequence 1 2] [:sequence 3 4 5] 6]))))
+
+
 
 ;;; Base64
-
 
 (deftest b64-1
   (testing "base64 blank"
