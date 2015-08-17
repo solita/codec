@@ -38,6 +38,24 @@
         (cons (bit-or 128 nd) ds)
         (throw (Exception. "too many length bytes"))))))
 
+(defn byte2bits [tl b]
+  (loop [bit 128 out tl]
+    (if (= bit 0)
+      out
+      (recur (bit-shift-right bit 1)
+        (cons
+          (if (= (bit-and b bit) 0) \0 \1)
+          out)))))
+
+(defn fold [op st lst]
+  (if (empty? lst)
+    st
+    (recur op (op st (first lst)) (rest lst))))
+
+(defn bytes2bitstring [bs]
+  (reverse
+    (fold byte2bits () bs)))
+ 
 (defn identifier [class consp tagnum]
   (if (> tagnum 30)
     (cons
@@ -223,6 +241,19 @@
               (throw (Exception. ":printable-string wants one string element")))
           (= op :identifier)
             (encode-object-identifier (rest node))
+          (= op :encapsulated-octet-string)
+            ;; these are just octet strings which happen to have valid content
+            (if (= (count node) 2)
+              (encode-octet-string 
+                (asn1-encode (nth node 1)))
+              (throw (Exception. ":encapsulated-octet-string requires one argument (did you want a sequence?)")))
+          (= op :encapsulated-bitstring)
+            ;; these are just bitstrings which happen to have valid content
+            (if (= (count node) 2)
+              (encode-bitstring 
+                (bytes2bitstring
+                  (asn1-encode (nth node 1))))
+              (throw (Exception. ":encapsulated-bitstring requires one argument (did you want a sequence?)")))
           (= op :utctime)
             (if (= (count node) 2)
               (encode-utc-time (nth node 1))

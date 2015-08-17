@@ -82,8 +82,18 @@
               [:utctime "200630093839Z"]
               ()])))))
 
+(deftest asn-enc-oct
+  (testing "asn dsl encapsulated o-string"
+    (is (= [4 10 4 8 2 6 10 27 1 212 177 199]
+          (asn1-encode
+            [:encapsulated-octet-string
+              [:encapsulated-octet-string 11111111111111]])))))
 
-
+(deftest asn-enc-bit
+  (testing "asn dsl encapsulated b-string"
+    (is (= [3 7 0 2 4 66 58 53 199]
+          (asn1-encode
+              [:encapsulated-bitstring 1111111111])))))
 
 (deftest b64-1
   (testing "base64 blank"
