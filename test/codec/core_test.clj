@@ -119,6 +119,11 @@
 (deftest asn-rencode-15 (testing "asn-rencode 15" (is true (asn1-rencode [:sequence 1 2 3 4 5 6]))))
 (deftest asn-rencode-15 (testing "asn-rencode 15" (is true (asn1-rencode [:sequence [:sequence 1 2] [:sequence 3 4 5] 6]))))
 
+(deftest asn-rencode-16 (testing "asn-rencode printable string " (is true (asn1-rencode [:printable-string "Hello, world!"]))))
+(deftest asn-rencode-17 (testing "asn-rencode ia5string "        (is true (asn1-rencode [:ia5string "foo@bar.com"]))))
+
+(deftest asn-rencode-18 (testing "asn-rencode set "        (is true (asn1-rencode [:set 1 2 3 4]))))
+(deftest asn-rencode-19 (testing "asn-rencode set "        (is true (asn1-rencode [:set [:set [:set 1 [:sequence 2 [:set 3 4]]]]]))))
 
 
 ;;; Base64

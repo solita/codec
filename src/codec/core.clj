@@ -198,6 +198,11 @@
     (= (first a) (first b)) (recur (rest a) (rest b))
     :true false))
 
+(defn lex-sorted? [lst]
+  (if (empty? lst)
+    true
+    (fold (fn [last next] (if (and last (lex< last next)) next false)) (first lst) (rest lst))))
+
 ;; as encode-set, but order is lexicographic
 (defn encode-set-of [& encoded]
   (let [bs (apply concat (sort lex< encoded))]
@@ -338,12 +343,6 @@
          (read-bytes bs nb)
          (vector false (str "failed to get integer size: " nb) bs))))
 
-(defn encode-octet-string [bs]
-  (concat
-    (identifier class-universal is-primitive tag-octet-string)
-    (length-bs (count bs))
-    (seq bs)))
-
 (defn grab [lst n]
    (loop [lst lst n n out ()]
       (cond
@@ -353,6 +352,24 @@
             (vector false lst)
          :true
             (recur (rest lst) (- n 1) (cons (first lst) out)))))
+
+(defn parse-printable-string [bs]
+  (let [[ok nb bs] (parse-length bs)]
+    (if ok  
+      (let [[bytes bs] (grab bs nb)]
+        (if bytes
+          (vector true (vector :printable-string (apply str (map char bytes))) bs)
+          (vector false bytes bs)))
+      (vector false nb bs))))
+
+(defn parse-ia5string [bs]
+  (let [[ok nb bs] (parse-length bs)]
+    (if ok  
+      (let [[bytes bs] (grab bs nb)]
+        (if bytes
+          (vector true (vector :ia5string (apply str (map char bytes))) bs)
+          (vector false bytes bs)))
+      (vector false nb bs))))
 
 (defn decode [bs]
     (let [tag (first bs)]
@@ -371,6 +388,27 @@
                                  (vector true (vector :octet-string elems) bs)
                                  (vector false "out of data reading octet string" bs)))
                            (vector false len bs)))
+                  (and (= consp 0) (= tagnum tag-printable-string))
+                    (parse-printable-string bs)
+                  (and (= consp 0) (= tagnum tag-ia5string))
+                    (parse-ia5string bs)
+                  ;; NOTE: no way to differentiate set and set-of (latter is sorted but sorted need not be set-of)
+                  (= tagnum tag-set)
+                     (let [[ok len bs] (parse-length bs)]
+                        ;; FIXME - was mutual recursion in toplevel ok? easy factor if so.
+                        (let [[seqbs bs] (grab bs len)]
+                              (if seqbs
+                                 (loop [seqbs seqbs out ()]
+                                    (let [[ok val seqbsp] (decode seqbs)]
+                                       (cond
+                                          ok (recur seqbsp (cons val out))
+                                          (empty? seqbs)
+                                             (vector true (into [] (cons :set (reverse out))) bs)
+                                          :true
+                                             (vector false 
+                                                (str "error reading a sequence at position " (count out) ": " val)
+                                                seqbs))))
+                                 (vector false "out of data reading sequence length" bs))))
                   (= tagnum tag-sequence)
                      (let [[ok len bs] (parse-length bs)]
                         (if ok
@@ -389,7 +427,7 @@
                                  (vector false "out of data reading sequence length" bs)))
                            (vector false "could not read sequence length" bs)))
                   :true
-                     (vector false (str "Unknown identifier tag: " tagnum) bs))
+                     (vector false (str "Unknown identifier tag: " tagnum ", constructed " consp ", class " class) bs))
                (vector false (str "Failed to read identifier: " class) bs)))
          (vector false "no input" bs))))
 
