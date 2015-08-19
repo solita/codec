@@ -328,6 +328,15 @@
             (if hd
                (recur (rest bs) (- count 1) (bit-or (bit-shift-left out 8) hd))
                (vector false "out of data" bs))))))
+
+(defn read-bytes-other-endian [bs count]
+   (loop [bs bs count count out 0 shift 0]
+      (if (= count 0)
+         (vector true out bs)
+         (let [hd (first bs)]
+            (if hd
+               (recur (rest bs) (- count 1) (bit-or out (bit-shift-left hd shift)) (+ shift 8))
+               (vector false "out of data" bs))))))
          
 (defn parse-length [bs]
    (let [n (first bs)]
@@ -338,7 +347,7 @@
             (vector true n (rest bs))
          :true
             (let [count (- n 128)]
-               (read-bytes bs count)))))
+               (read-bytes (rest bs) count)))))
 
 (defn parse-integer [bs]
    (let
@@ -358,13 +367,16 @@
             (recur (rest lst) (- n 1) (cons (first lst) out)))))
 
 (defn parse-printable-string [bs]
-  (let [[ok nb bs] (parse-length bs)]
-    (if ok  
-      (let [[bytes bs] (grab bs nb)]
-        (if bytes
-          (vector true (vector :printable-string (apply str (map char bytes))) bs)
-          (vector false bytes bs)))
-      (vector false nb bs))))
+   (let [[ok nb bs] (parse-length bs)]
+      (if ok  
+        (let [[bytes bs] (grab bs nb)]
+          (if bytes
+            (vector true (vector :printable-string (apply str (map char bytes))) bs)
+            (vector false bytes bs)))
+        (vector false nb bs))))
+
+(defn decode-object-identifier [bs]
+   (vector false "not supported yet" bs))
 
 (defn parse-ia5string [bs]
   (let [[ok nb bs] (parse-length bs)]
@@ -375,85 +387,98 @@
           (vector false bytes bs)))
       (vector false nb bs))))
 
+(defn parse-t61string [bs]
+  (let [[ok nb bs] (parse-length bs)]
+    (if ok  
+      (let [[bytes bs] (grab bs nb)]
+        (if bytes
+          (vector true (vector :t61string (apply str (map char bytes))) bs)
+          (vector false bytes bs)))
+      (vector false nb bs))))
+
 (defn decode [bs]
-    (let [tag (first bs)]
-      (if tag
-         (let [[ok class consp tagnum bs] (parse-identifier tag (rest bs))]
-            (if ok
-               (cond
-                  (and (= consp 0) (= tagnum tag-integer))
-                     ;; permissive: assumed universal
-                     (parse-integer bs)
-                  (and (= consp 0) (= tagnum tag-octet-string))
-                     (let [[ok len bs] (parse-length bs)]
-                        (if ok
-                           (let [[elems bs] (grab bs len)]
-                              (if elems
-                                 (vector true (vector :octet-string elems) bs)
-                                 (vector false "out of data reading octet string" bs)))
-                           (vector false len bs)))
-                  (and (= consp 0) (= tagnum tag-printable-string))
-                    (parse-printable-string bs)
-                  (and (= consp 0) (= tagnum tag-ia5string))
-                    (parse-ia5string bs)
-                  ;; NOTE: no way to differentiate set and set-of (latter is sorted but sorted need not be set-of)
-                  (= tagnum tag-set)
-                     (let [[ok len bs] (parse-length bs)]
-                        ;; FIXME - was mutual recursion in toplevel ok? easy factor if so.
-                        (let [[seqbs bs] (grab bs len)]
-                              (if seqbs
-                                 (loop [seqbs seqbs out ()]
-                                    (let [[ok val seqbsp] (decode seqbs)]
-                                       (cond
-                                          ok (recur seqbsp (cons val out))
-                                          (empty? seqbs)
-                                             (vector true (into [] (cons :set (reverse out))) bs)
-                                          :true
-                                             (vector false 
-                                                (str "error reading a sequence at position " (count out) ": " val)
-                                                seqbs))))
-                                 (vector false "out of data reading sequence length" bs))))
-                  (= tagnum tag-sequence)
-                     (let [[ok len bs] (parse-length bs)]
-                        (if ok
-                           (let [[seqbs bs] (grab bs len)]
-                              (if seqbs
-                                 (loop [seqbs seqbs out ()]
-                                    (let [[ok val seqbsp] (decode seqbs)]
-                                       (cond
-                                          ok (recur seqbsp (cons val out))
-                                          (empty? seqbs)
-                                             (vector true (into [] (cons :sequence (reverse out))) bs)
-                                          :true
-                                             (vector false 
-                                                (str "error reading a sequence at position " (count out) ": " val)
-                                                seqbs))))
-                                 (vector false "out of data reading sequence length" bs)))
-                           (vector false "could not read sequence length" bs)))
-                  (and (= consp 1) (= class class-context-specific))
-                    (let 
-                      [[ok len bs] (parse-length bs)]
+  (let [tag (first bs)]
+    (if tag
+       (let [[ok class consp tagnum bs] (parse-identifier tag (rest bs))]
+          (if ok
+             (cond
+                (and (= consp 0) (= tagnum tag-integer))
+                   ;; permissive: assumed universal
+                   (parse-integer bs)
+                (and (= consp 0) (= tagnum tag-octet-string))
+                   (let [[ok len bs] (parse-length bs)]
                       (if ok
-                        (let [[ok val bs] (decode bs)]
-                          (if ok
-                            (vector true (vector :explicit tagnum val) bs)
-                            (vector false val bs)))
-                        (vector false len bs)))
-                  :true
-                     (vector false (str "Unknown identifier tag: " tagnum ", constructed " consp ", class " class) bs))
-               (vector false (str "Failed to read identifier: " class) bs)))
-         (vector false "no input" bs))))
+                         (let [[elems bs] (grab bs len)]
+                            (if elems
+                               (vector true (vector :octet-string elems) bs)
+                               (vector false "out of data reading octet string" bs)))
+                         (vector false len bs)))
+                (and (= consp 0) (= tagnum tag-printable-string))
+                  (parse-printable-string bs)
+                (and (= consp 0) (= tagnum tag-ia5string))
+                  (parse-ia5string bs)
+                (and (= consp 0) (= tagnum tag-t61string))
+                  (parse-t61string bs)
+                ;; NOTE: no way to differentiate set and set-of (latter is sorted but sorted need not be set-of)
+                (= tagnum tag-set)
+                   (let [[ok len bs] (parse-length bs)]
+                      ;; FIXME - was mutual recursion in toplevel ok? easy factor if so.
+                      (let [[seqbs bs] (grab bs len)]
+                            (if seqbs
+                               (loop [seqbs seqbs out ()]
+                                  (let [[ok val seqbsp] (decode seqbs)]
+                                     (cond
+                                        ok (recur seqbsp (cons val out))
+                                        (empty? seqbs)
+                                           (vector true (into [] (cons :set (reverse out))) bs)
+                                        :true
+                                           (vector false 
+                                              (str "error reading a sequence at position " (count out) ": " val)
+                                              seqbs))))
+                               (vector false "out of data reading set length" bs))))
+                (= tagnum tag-sequence)
+                   (let [[ok len bs] (parse-length bs)]
+                      (if ok
+                         (let [[seqbs bs] (grab bs len)]
+                            (if seqbs
+                               (loop [seqbs seqbs out ()]
+                                  (let [[ok val seqbsp] (decode seqbs)]
+                                     (cond
+                                        ok (recur seqbsp (cons val out))
+                                        (empty? seqbs)
+                                           (vector true (into [] (cons :sequence (reverse out))) bs)
+                                        :true
+                                           (vector false 
+                                              (str "error reading a sequence at position " (count out) ": " val)
+                                              seqbs))))
+                               (vector false "out of data reading sequence length" bs)))
+                         (vector false "could not read sequence length" bs)))
+                (= class class-context-specific)
+                  (let 
+                    [[ok len bs] (parse-length bs)]
+                    (if ok
+                      (let [[ok val bs] (decode bs)]
+                        (if ok
+                          (vector true (vector :explicit tagnum val) bs)
+                          (vector false val bs)))
+                      (vector false len bs)))
+                (and (= class class-universal) (= tag tag-object-identifier))
+                  (decode-object-identifier bs)
+                :true
+                   (vector false (str "Unknown identifier tag: " tagnum ", constructed " consp ", class " class) bs))
+             (vector false (str "Failed to read identifier: " class) bs)))
+       (vector false "no input" bs))))
 
 (defn asn1-decode [bs]
-   (let [[ok value bs] (decode bs)]
-      (if ok
-         (do
-            (if (not (empty? bs))
-               (println "Warning: " (count bs) " bytes of trailing garbage ignored after ASN.1 decoding"))
-            value)
-         (do
-            (println "ERROR: ASN.1 decoding failed: " value)
-            nil))))
+  (let [[ok value bs] (decode bs)]
+    (if ok
+      (do
+        (if (not (empty? bs))
+          (println "Warning: " (count bs) " bytes of trailing garbage ignored after ASN.1 decoding"))
+        value)
+      (do
+        (println "ERROR: ASN.1 decoding failed: " value)
+        nil))))
 
 ;; for testing only
 (defn asn1-rencode [ast]
@@ -467,6 +492,17 @@
             (println "OUT: " astp)
             (println "ENCODED: " bs)
             false))))
+
+(defn binary-slurp [x]
+  (with-open [out (java.io.ByteArrayOutputStream.)]
+    (clojure.java.io/copy (clojure.java.io/input-stream x) out)
+    (map (partial bit-and 255) (seq (.toByteArray out)))))
+
+(defn asn1-decode-file [path]
+  (println "reading " path)
+  (let [data (binary-slurp path)]
+    (println "read " (count data) " bytes")
+    (println path " -> " (asn1-decode data))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;,

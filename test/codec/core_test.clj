@@ -120,13 +120,21 @@
 (deftest asn-rencode-15 (testing "asn-rencode 15" (is true (asn1-rencode [:sequence [:sequence 1 2] [:sequence 3 4 5] 6]))))
 
 (deftest asn-rencode-16 (testing "asn-rencode printable string " (is true (asn1-rencode [:printable-string "Hello, world!"]))))
-(deftest asn-rencode-17 (testing "asn-rencode ia5string "        (is true (asn1-rencode [:ia5string "foo@bar.com"]))))
+(deftest asn-rencode-17 (testing "asn-rencode printable string " (is true (asn1-rencode [:printable-string "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]))))
+(deftest asn-rencode-18 (testing "asn-rencode ia5string "        (is true (asn1-rencode [:ia5string "foo@bar.com"]))))
 
-(deftest asn-rencode-18 (testing "asn-rencode set "        (is true (asn1-rencode [:set 1 2 3 4]))))
-(deftest asn-rencode-19 (testing "asn-rencode set "        (is true (asn1-rencode [:set [:set [:set 1 [:sequence 2 [:set 3 4]]]]]))))
+(deftest asn-rencode-19 (testing "asn-rencode set "        (is true (asn1-rencode [:set 1 2 3 4]))))
+(deftest asn-rencode-20 (testing "asn-rencode set "        (is true (asn1-rencode [:set [:set [:set 1 [:sequence 2 [:set 3 4]]]]]))))
 
-(deftest asn-rencode-20 (testing "asn-rencode explicit 1 " (is true (asn1-rencode [:explicit 0 42]))))
-(deftest asn-rencode-21 (testing "asn-rencode explicit 2 " (is true (asn1-rencode [:explicit 30 [:explicit 31 [:explicit 31337 1111111111111]]]))))
+(deftest asn-rencode-21 (testing "asn-rencode explicit 1 " (is true (asn1-rencode [:explicit 0 42]))))
+(deftest asn-rencode-22 (testing "asn-rencode explicit 2 " (is true (asn1-rencode [:explicit 30 [:explicit 31 [:explicit 31337 1111111111111]]]))))
+
+(deftest asn-rencode-23 (testing "asn-rencode identifier 1" (is true (asn1-rencode [:identifier 1 2 3]))))
+(deftest asn-rencode-24 (testing "asn-rencode identifier 2" (is true (asn1-rencode [:identifier 1 2 31337]))))
+
+(deftest asn-big (testing "biggish decode" (is true (asn1-rencode 
+[:explicit 0 [:sequence [:set [:explicit 0 [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:set [:set [:set [:set [:set [:sequence [:set 1 2 3 4 1 3 4]]]]]]]]]]] [:explicit 0 [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:set [:set [:set 1 4 4 1111111111111111111 1 1 1 11 11111111111111 [:printable-string "fooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"]]]]]]]]]]]]]]]]]]]]]]]]]))))
+
 
 
 ;;; Base64
