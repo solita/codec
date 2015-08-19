@@ -125,6 +125,9 @@
 (deftest asn-rencode-18 (testing "asn-rencode set "        (is true (asn1-rencode [:set 1 2 3 4]))))
 (deftest asn-rencode-19 (testing "asn-rencode set "        (is true (asn1-rencode [:set [:set [:set 1 [:sequence 2 [:set 3 4]]]]]))))
 
+(deftest asn-rencode-20 (testing "asn-rencode explicit 1 " (is true (asn1-rencode [:explicit 0 42]))))
+(deftest asn-rencode-21 (testing "asn-rencode explicit 2 " (is true (asn1-rencode [:explicit 30 [:explicit 31 [:explicit 31337 1111111111111]]]))))
+
 
 ;;; Base64
 

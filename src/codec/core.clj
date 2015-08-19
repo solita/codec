@@ -67,6 +67,7 @@
 
 ;;; todo: preshift
 
+
 (def class-universal  0)
 (def class-application 1)
 (def class-context-specific 2)
@@ -212,9 +213,11 @@
       bs)))
 
 (defn encode-explicit [n & es]
-  (cons (+ 0xa0 n)
-    (let [bs (apply concat es)]
-      (concat (length-bs (count bs)) bs))))
+  (let [bs (apply concat es)]
+    (concat
+      (identifier class-context-specific is-constructed n)
+      (length-bs (count bs))
+      bs)))
 
 (defn encode-utc-time [timestr]
   (concat
@@ -283,6 +286,7 @@
       encode-null
     :true
       (throw (Exception. "Unknown ASN.1 encoder node type: " node))))
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;,
@@ -426,6 +430,15 @@
                                                 seqbs))))
                                  (vector false "out of data reading sequence length" bs)))
                            (vector false "could not read sequence length" bs)))
+                  (and (= consp 1) (= class class-context-specific))
+                    (let 
+                      [[ok len bs] (parse-length bs)]
+                      (if ok
+                        (let [[ok val bs] (decode bs)]
+                          (if ok
+                            (vector true (vector :explicit tagnum val) bs)
+                            (vector false val bs)))
+                        (vector false len bs)))
                   :true
                      (vector false (str "Unknown identifier tag: " tagnum ", constructed " consp ", class " class) bs))
                (vector false (str "Failed to read identifier: " class) bs)))
