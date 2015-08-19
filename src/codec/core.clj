@@ -376,7 +376,21 @@
         (vector false nb bs))))
 
 (defn decode-object-identifier [bs]
-   (vector false "not supported yet" bs))
+   (let [[ok nb bs] (parse-length bs)]
+      (if ok
+         (let [[idbs bs] (grab bs nb)]
+            (loop [idbs idbs ids ()]
+               (if (empty? idbs)
+                  (let [ids (reverse ids)
+                        a (quot (first ids) 40)
+                        b (rem (first ids) 40)
+                        ids (cons a (cons b (rest ids)))]
+                      (vector true (into [] (cons :identifier ids)) bs))
+                  (let [[ok num idbs] (parse-bignum idbs)]
+                     (if ok   
+                        (recur idbs (cons num ids))
+                        (vector false (str "bad bignum within object identifier: " num) bs))))))
+         (vector false "out of data reading object identifier" bs))))
 
 (defn parse-ia5string [bs]
   (let [[ok nb bs] (parse-length bs)]
