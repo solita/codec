@@ -132,6 +132,18 @@
 (deftest asn-rencode-23 (testing "asn-rencode identifier 1" (is true (asn1-rencode [:identifier 1 2 3]))))
 (deftest asn-rencode-24 (testing "asn-rencode identifier 2" (is true (asn1-rencode [:identifier 1 2 31337]))))
 
+(deftest asn-rencode-25 (testing "asn-rencode null " (is true (asn1-rencode ()))))
+
+(deftest asn-rencode-26 (testing "asn-rencode utctime" (is true (asn1-rencode [:utctime "200630093839Z"]))))
+
+(deftest asn-rencode-27 (testing "asn-rencode bitstring 1" (is true (asn1-rencode [:bit-string ""]))))
+(deftest asn-rencode-28 (testing "asn-rencode bitstring 2" (is true (asn1-rencode [:bit-string "0"]))))
+(deftest asn-rencode-29 (testing "asn-rencode bitstring 3" (is true (asn1-rencode [:bit-string "1"]))))
+(deftest asn-rencode-30 (testing "asn-rencode bitstring 4" (is true (asn1-rencode [:bit-string "10000000"]))))
+(deftest asn-rencode-31 (testing "asn-rencode bitstring 5" (is true (asn1-rencode [:bit-string "0000000010000000"]))))
+(deftest asn-rencode-32 (testing "asn-rencode bitstring 6" (is true (asn1-rencode [:bit-string "0000000100000000"]))))
+(deftest asn-rencode-33 (testing "asn-rencode bitstring 7" (is true (asn1-rencode [:bit-string "110100100010000100000100000010000000110100100010000100000100000010000000"]))))
+
 (deftest asn-big (testing "biggish decode" (is true (asn1-rencode 
 [:explicit 0 [:sequence [:set [:explicit 0 [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:set [:set [:set [:set [:set [:sequence [:set 1 2 3 4 1 3 4]]]]]]]]]]] [:explicit 0 [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:set [:set [:set 1 4 4 1111111111111111111 1 1 1 11 11111111111111 [:printable-string "fooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"]]]]]]]]]]]]]]]]]]]]]]]]]))))
 

@@ -375,7 +375,7 @@
             (vector false bytes bs)))
         (vector false nb bs))))
 
-(defn decode-object-identifier [bs]
+(defn parse-object-identifier [bs]
    (let [[ok nb bs] (parse-length bs)]
       (if ok
          (let [[idbs bs] (grab bs nb)]
@@ -401,6 +401,15 @@
           (vector false bytes bs)))
       (vector false nb bs))))
 
+(defn parse-utctime [bs]
+  (let [[ok nb bs] (parse-length bs)]
+    (if ok  
+      (let [[bytes bs] (grab bs nb)]
+        (if bytes
+          (vector true (vector :utctime (apply str (map char bytes))) bs)
+          (vector false bytes bs)))
+      (vector false nb bs))))
+
 (defn parse-t61string [bs]
   (let [[ok nb bs] (parse-length bs)]
     (if ok  
@@ -409,6 +418,26 @@
           (vector true (vector :t61string (apply str (map char bytes))) bs)
           (vector false bytes bs)))
       (vector false nb bs))))
+
+(defn octets2bitstring [octets pads]
+  (let [len (* 8 (count octets))
+        bits (bytes2bitstring octets)
+        [bits pads] (grab bits (- len pads))]
+    (vector :bit-string (apply str bits))))
+
+(defn parse-bit-string [bs]
+  (let [[ok nb bs] (parse-length bs)]
+    (if ok
+      (let [pads (first bs)
+            [octets bs] (if pads (grab (rest bs) (- nb 1)) (vector false bs))]
+        (cond
+          (not octets)
+            (vector false "failed to read bitstring bytes" bs)
+          (> pads 7)
+            (vector false (str "invalid number of pad bits in bit string: " pads) bs)
+          :true
+            (vector ok (octets2bitstring octets pads) bs)))
+      (vector false "invalid bitstring length" bs))))
 
 (defn decode [bs]
   (let [tag (first bs)]
@@ -433,6 +462,8 @@
                   (parse-ia5string bs)
                 (and (= consp 0) (= tagnum tag-t61string))
                   (parse-t61string bs)
+                (and (= consp 0) (= tagnum tag-utc-time))
+                  (parse-utctime bs)
                 ;; NOTE: no way to differentiate set and set-of (latter is sorted but sorted need not be set-of)
                 (= tagnum tag-set)
                    (let [[ok len bs] (parse-length bs)]
@@ -476,12 +507,20 @@
                           (vector true (vector :explicit tagnum val) bs)
                           (vector false val bs)))
                       (vector false len bs)))
+                (and (= consp 0) (= tagnum tag-bit-string))
+                  (parse-bit-string bs)
+                (= tagnum tag-null)
+                  (let [len (first bs)]
+                    (if (= len 0)
+                      (vector true () (rest bs))
+                      (vector false "invalid byte after null tag" bs)))
                 (and (= class class-universal) (= tag tag-object-identifier))
-                  (decode-object-identifier bs)
+                  (parse-object-identifier bs)
                 :true
                    (vector false (str "Unknown identifier tag: " tagnum ", constructed " consp ", class " class) bs))
              (vector false (str "Failed to read identifier: " class) bs)))
        (vector false "no input" bs))))
+
 
 (defn asn1-decode [bs]
   (let [[ok value bs] (decode bs)]
