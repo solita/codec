@@ -1,5 +1,6 @@
 (ns codec.core)
 
+;; fixme: fuzz the decoder(s). this should be nice O(n) nil-on-error worry-free library. no hangs, exceptions or memory hogs.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;,
 ;;;
@@ -76,6 +77,7 @@
 (def is-primitive 0)
 (def is-constructed 1)
 
+(def tag-boolean 1)
 (def tag-integer 2)
 (def tag-bit-string 3)
 (def tag-octet-string 4)
@@ -280,6 +282,8 @@
       (encode-integer node)
     (string? node)
       (encode-printable-string node)
+    (= node false) (list 1 1 0)
+    (= node true) (list 1 1 255) ;; true is very true in ASN.1
     (= node :null)
       encode-null
     (= node ())
@@ -439,6 +443,9 @@
             (vector ok (octets2bitstring octets pads) bs)))
       (vector false "invalid bitstring length" bs))))
 
+;; fixme: check how mutual/upwards recursion works in clojure + factor
+;; fixme: handle consp & primitive properly
+;; fixme: very easy to speed things up should that become necessary
 (defn decode [bs]
   (let [tag (first bs)]
     (if tag
@@ -467,7 +474,6 @@
                 ;; NOTE: no way to differentiate set and set-of (latter is sorted but sorted need not be set-of)
                 (= tagnum tag-set)
                    (let [[ok len bs] (parse-length bs)]
-                      ;; FIXME - was mutual recursion in toplevel ok? easy factor if so.
                       (let [[seqbs bs] (grab bs len)]
                             (if seqbs
                                (loop [seqbs seqbs out ()]
@@ -478,7 +484,9 @@
                                            (vector true (into [] (cons :set (reverse out))) bs)
                                         :true
                                            (vector false 
-                                              (str "error reading a sequence at position " (count out) ": " val)
+                                              (str "error reading a set at position " (count out) 
+                                                (if (empty? out) "" (str " after " (first out)))
+                                                ": " val)
                                               seqbs))))
                                (vector false "out of data reading set length" bs))))
                 (= tagnum tag-sequence)
@@ -494,19 +502,12 @@
                                            (vector true (into [] (cons :sequence (reverse out))) bs)
                                         :true
                                            (vector false 
-                                              (str "error reading a sequence at position " (count out) ": " val)
+                                              (str "error reading a sequence at position " (count out) 
+                                                (if (empty? out) "" (str " after " (first out)))
+                                                ": " val)
                                               seqbs))))
                                (vector false "out of data reading sequence length" bs)))
                          (vector false "could not read sequence length" bs)))
-                (= class class-context-specific)
-                  (let 
-                    [[ok len bs] (parse-length bs)]
-                    (if ok
-                      (let [[ok val bs] (decode bs)]
-                        (if ok
-                          (vector true (vector :explicit tagnum val) bs)
-                          (vector false val bs)))
-                      (vector false len bs)))
                 (and (= consp 0) (= tagnum tag-bit-string))
                   (parse-bit-string bs)
                 (= tagnum tag-null)
@@ -514,8 +515,27 @@
                     (if (= len 0)
                       (vector true () (rest bs))
                       (vector false "invalid byte after null tag" bs)))
+                (= tagnum tag-boolean)
+                  (let [[len val & bs] bs]
+                    (cond
+                      (not (= len 1))
+                        (vector false (str "invalid boolan length: " len) bs)
+                      (= val 0)
+                        (vector true false bs)
+                      (= val 255)
+                        (vector true true bs)
+                      :true
+                        (vector false (str "wrong shade of gray for boolean truth: " val) bs)))
                 (and (= class class-universal) (= tag tag-object-identifier))
                   (parse-object-identifier bs)
+                (= class class-context-specific)
+                  (let [[ok len bs] (parse-length bs)]
+                    (if ok
+                      (let [[ok val bs] (decode bs)]
+                        (if ok
+                          (vector true (vector :explicit tagnum val) bs)
+                          (vector false (str "failed to read explicit content: " val) bs)))
+                      (vector false (str "failed to read explicit: " len) bs)))
                 :true
                    (vector false (str "Unknown identifier tag: " tagnum ", constructed " consp ", class " class) bs))
              (vector false (str "Failed to read identifier: " class) bs)))
@@ -556,6 +576,8 @@
   (let [data (binary-slurp path)]
     (println "read " (count data) " bytes")
     (println path " -> " (asn1-decode data))))
+
+; (asn1-decode-file "/home/aki/src/asn/asn.raw")
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;,

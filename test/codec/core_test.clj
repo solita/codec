@@ -18,8 +18,12 @@
     (is (= (bignum 1111111111111111111) [143 181 221 181 178 222 145 227 71]))))
 
 (deftest id-1
-  (testing "object identifier"
+  (testing "object identifier 1"
     (is (= (encode-object-identifier (list 1 2 3 4)) [6 3 42 3 4]))))
+
+(deftest id-2
+  (testing "object identifier 2"
+    (is (= (encode-object-identifier (list 1 2 840 113549 1 1 1)) [6 9 42 134 72 134 247 13 1 1 1]))))
 
 (deftest bitstring-1
   (testing "bitstring conversion" 
@@ -129,20 +133,26 @@
 (deftest asn-rencode-21 (testing "asn-rencode explicit 1 " (is true (asn1-rencode [:explicit 0 42]))))
 (deftest asn-rencode-22 (testing "asn-rencode explicit 2 " (is true (asn1-rencode [:explicit 30 [:explicit 31 [:explicit 31337 1111111111111]]]))))
 
-(deftest asn-rencode-23 (testing "asn-rencode identifier 1" (is true (asn1-rencode [:identifier 1 2 3]))))
-(deftest asn-rencode-24 (testing "asn-rencode identifier 2" (is true (asn1-rencode [:identifier 1 2 31337]))))
+(deftest asn-rencode-null (testing "asn-rencode null " (is true (asn1-rencode ()))))
 
-(deftest asn-rencode-25 (testing "asn-rencode null " (is true (asn1-rencode ()))))
+(deftest asn-rencode-id1 (testing "asn-rencode identifier 1" (is true (asn1-rencode [:identifier 1 2 3]))))
+(deftest asn-rencode-id2 (testing "asn-rencode identifier 2" (is true (asn1-rencode [:identifier 1 2 31337]))))
+(deftest asn-rencode-id3 (testing "asn-rencode identifier 3" (is true (asn1-rencode [:identifier 1 2 840 113549 1 1 1]))))
+(deftest asn-rencode-id4 (testing "asn-rencode identifier 4" (is true (asn1-rencode [:sequence [:identifier 1 2 840 113549 1 1 1] ()]))))
 
-(deftest asn-rencode-26 (testing "asn-rencode utctime" (is true (asn1-rencode [:utctime "200630093839Z"]))))
+(deftest asn-rencode-27 (testing "asn-rencode utctime" (is true (asn1-rencode [:utctime "200630093839Z"]))))
 
-(deftest asn-rencode-27 (testing "asn-rencode bitstring 1" (is true (asn1-rencode [:bit-string ""]))))
-(deftest asn-rencode-28 (testing "asn-rencode bitstring 2" (is true (asn1-rencode [:bit-string "0"]))))
-(deftest asn-rencode-29 (testing "asn-rencode bitstring 3" (is true (asn1-rencode [:bit-string "1"]))))
-(deftest asn-rencode-30 (testing "asn-rencode bitstring 4" (is true (asn1-rencode [:bit-string "10000000"]))))
-(deftest asn-rencode-31 (testing "asn-rencode bitstring 5" (is true (asn1-rencode [:bit-string "0000000010000000"]))))
-(deftest asn-rencode-32 (testing "asn-rencode bitstring 6" (is true (asn1-rencode [:bit-string "0000000100000000"]))))
-(deftest asn-rencode-33 (testing "asn-rencode bitstring 7" (is true (asn1-rencode [:bit-string "110100100010000100000100000010000000110100100010000100000100000010000000"]))))
+(deftest asn-rencode-bit1 (testing "asn-rencode bitstring 1" (is true (asn1-rencode [:bit-string ""]))))
+(deftest asn-rencode-bit2 (testing "asn-rencode bitstring 2" (is true (asn1-rencode [:bit-string "0"]))))
+(deftest asn-rencode-bit3 (testing "asn-rencode bitstring 3" (is true (asn1-rencode [:bit-string "1"]))))
+(deftest asn-rencode-bit4 (testing "asn-rencode bitstring 4" (is true (asn1-rencode [:bit-string "10000000"]))))
+(deftest asn-rencode-bit5 (testing "asn-rencode bitstring 5" (is true (asn1-rencode [:bit-string "0000000010000000"]))))
+(deftest asn-rencode-bit5 (testing "asn-rencode bitstring 6" (is true (asn1-rencode [:bit-string "0000000100000000"]))))
+(deftest asn-rencode-bit6 (testing "asn-rencode bitstring 7" (is true (asn1-rencode [:bit-string "110100100010000100000100000010000000110100100010000100000100000010000000"]))))
+
+(deftest asn-rencode-34 (testing "asn-rencode bitstring combo" (is true (asn1-rencode [:sequence [:bit-string ""] [:bit-string "0"] [:bit-string "1"] [:bit-string "00"] [:bit-string "01"] [:bit-string "10"] [:bit-string "11"] [:bit-string "000"] [:bit-string "001"] [:bit-string "010"] [:bit-string "011"] [:bit-string "100"] [:bit-string "101"] [:bit-string "110"] [:bit-string "111"]]))))
+
+(deftest asn-bool-1 (testing "booleans " (is true [:sequence true false])))
 
 (deftest asn-big (testing "biggish decode" (is true (asn1-rencode 
 [:explicit 0 [:sequence [:set [:explicit 0 [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:set [:set [:set [:set [:set [:sequence [:set 1 2 3 4 1 3 4]]]]]]]]]]] [:explicit 0 [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:set [:set [:set 1 4 4 1111111111111111111 1 1 1 11 11111111111111 [:printable-string "fooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"]]]]]]]]]]]]]]]]]]]]]]]]]))))
