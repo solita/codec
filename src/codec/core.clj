@@ -1,6 +1,25 @@
+
 (ns codec.core)
 
 ;; fixme: fuzz the decoder(s). this should be nice O(n) nil-on-error worry-free library. no hangs, exceptions or memory hogs.
+
+;;; misc utils
+
+(defn fold [op st lst]
+  (if (empty? lst)
+    st
+    (recur op (op st (first lst)) (rest lst))))
+
+(defn first-match [pred lst]
+  (cond
+    (empty? lst)
+      false
+    (pred (first lst))
+      (first lst)
+    :true
+      (recur pred (rest lst))))
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;,
 ;;;
@@ -48,11 +67,6 @@
         (cons
           (if (= (bit-and b bit) 0) \0 \1)
           out)))))
-
-(defn fold [op st lst]
-  (if (empty? lst)
-    st
-    (recur op (op st (first lst)) (rest lst))))
 
 (defn bytes2bitstring [bs]
   (reverse
@@ -580,10 +594,38 @@
 ; (asn1-decode-file "/home/aki/src/asn/asn.raw")
 
 
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;,
 ;;;
 ;;; ASN.1 AST utils
 ;;;
+
+(defn tagged-as? [asn k]
+  (and (vector? asn) (= (first asn) k)))
+
+;; AST pattern → bool
+(defn asn1-match? [asn pat]
+  (cond
+    (keyword? pat)
+      (tagged-as? asn pat)
+    :true 
+      (throw (Exception. "known asn1-match pattern node: " pat))))
+
+;; AST pattern → AST' ∊ AST ∨ nil
+(defn asn1-find-left-dfs [asn pat]
+  (cond
+    (asn1-match? asn pat)
+      asn
+    (vector? asn)
+      (or
+         (first-match (fn [x] (asn1-find-left-dfs x pat)) (rest asn))
+         nil)
+    :true 
+      nil))
+      
+(def asn1-find 
+   asn1-find-left-dfs)
 
 
 

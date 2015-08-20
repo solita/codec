@@ -5,78 +5,41 @@
   (:require [clojure.test :refer :all]
             [codec.core :refer :all]))
 
-(deftest dig8
-  (testing "8-bit digits"
-    (is (= (to-8bit-digits 111111111111111) [101 14 18 78 241 199]))))
-
-(deftest big-1
-  (testing "bignum 127"
-    (is (= (bignum 127) [127]))))
-
-(deftest big-2
-  (testing "bignum"
-    (is (= (bignum 1111111111111111111) [143 181 221 181 178 222 145 227 71]))))
-
-(deftest id-1
-  (testing "object identifier 1"
-    (is (= (encode-object-identifier (list 1 2 3 4)) [6 3 42 3 4]))))
-
-(deftest id-2
-  (testing "object identifier 2"
-    (is (= (encode-object-identifier (list 1 2 840 113549 1 1 1)) [6 9 42 134 72 134 247 13 1 1 1]))))
-
-(deftest bitstring-1
-  (testing "bitstring conversion" 
-    (is (= (bitstring2bytes "1111111100000000111100000000111100000001")
-           [255 0 240 15 1]))))
-
-(deftest bitstring-2
-  (testing "bitstring encoding"
-    (is (= (encode-bitstring "1010111111111000000001111000010101")
-           [3 6 6 175 248 7 133 64]))))
-
-(deftest ia5string-1
-  (testing "ia5string encoding"
-    (is (= (encode-ia5string "Hello, world!")
-           [22 13 72 101 108 108 111 44 32 119 111 114 108 100 33]))))
-
-(deftest ostring
-  (testing "octet string encoding"
+(deftest asn1-known
+  (testing "Known ASN.1 encodings"
+    (is (= (to-8bit-digits 111111111111111) 
+              [101 14 18 78 241 199]))
+    (is (= (bignum 127) 
+              [127]))
+    (is (= (bignum 1111111111111111111) 
+              [143 181 221 181 178 222 145 227 71]))
+    (is (= (encode-object-identifier (list 1 2 3 4)) 
+              [6 3 42 3 4]))
+    (is (= (encode-object-identifier (list 1 2 840 113549 1 1 1)) 
+              [6 9 42 134 72 134 247 13 1 1 1]))
+    (is (= (bitstring2bytes "1111111100000000111100000000111100000001") 
+              [255 0 240 15 1]))
+    (is (= (encode-bitstring "1010111111111000000001111000010101") 
+              [3 6 6 175 248 7 133 64]))
+    (is (= (encode-ia5string "Hello, world!") 
+              [22 13 72 101 108 108 111 44 32 119 111 114 108 100 33]))
     (is (= (encode-octet-string (list 0 1 2 127 128 255))
-           [4 6 0 1 2 127 128 255]))))
-
-(deftest tsequence
-  (testing "sequence encoding"
+              [4 6 0 1 2 127 128 255]))
     (is (= (encode-sequence encode-null encode-null encode-null)
-           [48 6 5 0 5 0 5 0]))))
-
-(deftest tset
-  (testing "set encoding"
+              [48 6 5 0 5 0 5 0]))
     (is (= (encode-set (encode-integer 3) (encode-integer 1) (encode-integer 2))
-           [49 9 2 1 3 2 1 1 2 1 2]))))
-
-(deftest tsetof
-  (testing "set-of encoding"
+              [49 9 2 1 3 2 1 1 2 1 2]))
     (is (= (encode-set-of (encode-integer 3) (encode-integer 1) (encode-integer 2))
-           [49 9 2 1 1 2 1 2 2 1 3]))))
-
-(deftest expl1
-  (testing "explicit encoding"
+              [49 9 2 1 1 2 1 2 2 1 3]))
     (is (= (encode-explicit 1 (encode-sequence (encode-object-identifier (list 1 2 3)) (encode-integer 42) encode-null))
-           [161 11 48 9 6 2 42 3 2 1 42 5 0]))))
-
-(deftest utctime
-  (testing "utctime encoding"
+              [161 11 48 9 6 2 42 3 2 1 42 5 0]))
     (is (= (encode-utc-time "200630093839Z")
-           [23 13 50 48 48 54 51 48 48 57 51 56 51 57 90]))))
-
-(deftest pritable
-  (testing "printable string encodind"
+              [23 13 50 48 48 54 51 48 48 57 51 56 51 57 90]))
     (is (= (encode-printable-string "Clojutre")
-           [19 8 67 108 111 106 117 116 114 101]))))
+              [19 8 67 108 111 106 117 116 114 101]))))
 
-(deftest asn-dsl-1
-  (testing "asn dsl"
+(deftest asn1-dsl
+  (testing "AST -> known ASN.1 (DER)"
     (is (= [48 45 6 3 42 3 4 160 16 49 6 2 1 2 2 1 1 49 6 2 1 1 2 1 2 19 3 102 111 111 23 13 50 48 48 54 51 48 48 57 51 56 51 57 90 5 0]
            (asn1-encode
             [:sequence
@@ -86,17 +49,11 @@
                 [:set-of 2 1]]
               "foo"
               [:utctime "200630093839Z"]
-              ()])))))
-
-(deftest asn-enc-oct
-  (testing "asn dsl encapsulated o-string"
+              ()])))
     (is (= [4 10 4 8 2 6 10 27 1 212 177 199]
           (asn1-encode
             [:encapsulated-octet-string
-              [:encapsulated-octet-string 11111111111111]])))))
-
-(deftest asn-enc-bit
-  (testing "asn dsl encapsulated b-string"
+              [:encapsulated-octet-string 11111111111111]])))
     (is (= [3 7 0 2 4 66 58 53 199]
           (asn1-encode
               [:encapsulated-bitstring 1111111111])))))
@@ -104,90 +61,86 @@
 
 ;;; ASN.1 AST -> bytes -> AST' equality comparisons
 
-(deftest asn-rencode-1 (testing "asn-rencode 1" (is true (asn1-rencode 0))))
-(deftest asn-rencode-2 (testing "asn-rencode 2" (is true (asn1-rencode 127))))
-(deftest asn-rencode-3 (testing "asn-rencode 3" (is true (asn1-rencode 128))))
-(deftest asn-rencode-4 (testing "asn-rencode 4" (is true (asn1-rencode 255))))
-(deftest asn-rencode-5 (testing "asn-rencode 5" (is true (asn1-rencode 256))))
-(deftest asn-rencode-6 (testing "asn-rencode 6" (is true (asn1-rencode 65535))))
-(deftest asn-rencode-7 (testing "asn-rencode 7" (is true (asn1-rencode 65536))))
-(deftest asn-rencode-8 (testing "asn-rencode 8" (is true (asn1-rencode 11111111111111))))
+(deftest asn-rencode
+  (testing "AST -> ASN.1 (DER) -> AST"
+    (is (asn1-rencode 0))
+    (is (asn1-rencode 127))
+    (is (asn1-rencode 128))
+    (is (asn1-rencode 255))
+    (is (asn1-rencode 256))
+    (is (asn1-rencode 65535))
+    (is (asn1-rencode 65536))
+    (is (asn1-rencode 11111111111111))
 
-(deftest asn-rencode-9 (testing "asn-rencode 9" (is true (asn1-rencode [:octet-string (list)]))))
-(deftest asn-rencode-10 (testing "asn-rencode 10" (is true (asn1-rencode [:octet-string (list 1)]))))
-(deftest asn-rencode-11 (testing "asn-rencode 11" (is true (asn1-rencode [:octet-string (list 0 1 1 0 1 1 1 0 0 1 0 1 1 1 0 1 1 1 1 0 0 0)]))))
+    (is (asn1-rencode [:octet-string (list)]))
+    (is (asn1-rencode [:octet-string (list 1)]))
+    (is (asn1-rencode [:octet-string (list 0 1 1 0 1 1 1 0 0 1 0 1 1 1 0 1 1 1 1 0 0 0)]))
 
-(deftest asn-rencode-12 (testing "asn-rencode 12" (is true (asn1-rencode [:sequence]))))
-(deftest asn-rencode-13 (testing "asn-rencode 13" (is true (asn1-rencode [:sequence 1]))))
-(deftest asn-rencode-14 (testing "asn-rencode 14" (is true (asn1-rencode [:sequence 1 2]))))
-(deftest asn-rencode-15 (testing "asn-rencode 15" (is true (asn1-rencode [:sequence 1 2 3 4 5 6]))))
-(deftest asn-rencode-15 (testing "asn-rencode 15" (is true (asn1-rencode [:sequence [:sequence 1 2] [:sequence 3 4 5] 6]))))
+    (is (asn1-rencode [:sequence]))
+    (is (asn1-rencode [:sequence 1]))
+    (is (asn1-rencode [:sequence 1 2]))
+    (is (asn1-rencode [:sequence 1 2 3 4 5 6]))
+    (is (asn1-rencode [:sequence [:sequence 1 2] [:sequence 3 4 5] 6]))
 
-(deftest asn-rencode-16 (testing "asn-rencode printable string " (is true (asn1-rencode [:printable-string "Hello, world!"]))))
-(deftest asn-rencode-17 (testing "asn-rencode printable string " (is true (asn1-rencode [:printable-string "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]))))
-(deftest asn-rencode-18 (testing "asn-rencode ia5string "        (is true (asn1-rencode [:ia5string "foo@bar.com"]))))
+    (is (asn1-rencode [:printable-string "Hello, world!"]))
+    (is (asn1-rencode [:printable-string "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]))
+    (is (asn1-rencode [:ia5string "foo@bar.com"]))
 
-(deftest asn-rencode-19 (testing "asn-rencode set "        (is true (asn1-rencode [:set 1 2 3 4]))))
-(deftest asn-rencode-20 (testing "asn-rencode set "        (is true (asn1-rencode [:set [:set [:set 1 [:sequence 2 [:set 3 4]]]]]))))
+    (is (asn1-rencode [:set 1 2 3 4]))
+    (is (asn1-rencode [:set [:set [:set 1 [:sequence 2 [:set 3 4]]]]]))
 
-(deftest asn-rencode-21 (testing "asn-rencode explicit 1 " (is true (asn1-rencode [:explicit 0 42]))))
-(deftest asn-rencode-22 (testing "asn-rencode explicit 2 " (is true (asn1-rencode [:explicit 30 [:explicit 31 [:explicit 31337 1111111111111]]]))))
+    (is (asn1-rencode [:explicit 0 42]))
+    (is (asn1-rencode [:explicit 30 [:explicit 31 [:explicit 31337 1111111111111]]]))
 
-(deftest asn-rencode-null (testing "asn-rencode null " (is true (asn1-rencode ()))))
+    (is (asn1-rencode ()))
 
-(deftest asn-rencode-id1 (testing "asn-rencode identifier 1" (is true (asn1-rencode [:identifier 1 2 3]))))
-(deftest asn-rencode-id2 (testing "asn-rencode identifier 2" (is true (asn1-rencode [:identifier 1 2 31337]))))
-(deftest asn-rencode-id3 (testing "asn-rencode identifier 3" (is true (asn1-rencode [:identifier 1 2 840 113549 1 1 1]))))
-(deftest asn-rencode-id4 (testing "asn-rencode identifier 4" (is true (asn1-rencode [:sequence [:identifier 1 2 840 113549 1 1 1] ()]))))
+    (is (asn1-rencode [:identifier 1 2 3]))
+    (is (asn1-rencode [:identifier 1 2 31337]))
+    (is (asn1-rencode [:identifier 1 2 840 113549 1 1 1]))
+    (is (asn1-rencode [:sequence [:identifier 1 2 840 113549 1 1 1] ()]))
 
-(deftest asn-rencode-27 (testing "asn-rencode utctime" (is true (asn1-rencode [:utctime "200630093839Z"]))))
+    (is (asn1-rencode [:utctime "200630093839Z"]))
 
-(deftest asn-rencode-bit1 (testing "asn-rencode bitstring 1" (is true (asn1-rencode [:bit-string ""]))))
-(deftest asn-rencode-bit2 (testing "asn-rencode bitstring 2" (is true (asn1-rencode [:bit-string "0"]))))
-(deftest asn-rencode-bit3 (testing "asn-rencode bitstring 3" (is true (asn1-rencode [:bit-string "1"]))))
-(deftest asn-rencode-bit4 (testing "asn-rencode bitstring 4" (is true (asn1-rencode [:bit-string "10000000"]))))
-(deftest asn-rencode-bit5 (testing "asn-rencode bitstring 5" (is true (asn1-rencode [:bit-string "0000000010000000"]))))
-(deftest asn-rencode-bit5 (testing "asn-rencode bitstring 6" (is true (asn1-rencode [:bit-string "0000000100000000"]))))
-(deftest asn-rencode-bit6 (testing "asn-rencode bitstring 7" (is true (asn1-rencode [:bit-string "110100100010000100000100000010000000110100100010000100000100000010000000"]))))
+    (is (asn1-rencode [:bit-string ""]))
+    (is (asn1-rencode [:bit-string "0"]))
+    (is (asn1-rencode [:bit-string "1"]))
+    (is (asn1-rencode [:bit-string "10000000"]))
+    (is (asn1-rencode [:bit-string "0000000010000000"]))
+    (is (asn1-rencode [:bit-string "0000000100000000"]))
+    (is (asn1-rencode [:bit-string "110100100010000100000100000010000000110100100010000100000100000010000000"]))
 
-(deftest asn-rencode-34 (testing "asn-rencode bitstring combo" (is true (asn1-rencode [:sequence [:bit-string ""] [:bit-string "0"] [:bit-string "1"] [:bit-string "00"] [:bit-string "01"] [:bit-string "10"] [:bit-string "11"] [:bit-string "000"] [:bit-string "001"] [:bit-string "010"] [:bit-string "011"] [:bit-string "100"] [:bit-string "101"] [:bit-string "110"] [:bit-string "111"]]))))
+    (is (asn1-rencode [:sequence [:bit-string ""] [:bit-string "0"] [:bit-string "1"] [:bit-string "00"] [:bit-string "01"] [:bit-string "10"] [:bit-string "11"] [:bit-string "000"] [:bit-string "001"] [:bit-string "010"] [:bit-string "011"] [:bit-string "100"] [:bit-string "101"] [:bit-string "110"] [:bit-string "111"]]))
 
-(deftest asn-bool-1 (testing "booleans " (is true [:sequence true false])))
+    (is (asn1-rencode [:sequence true false]))
 
-(deftest asn-big (testing "biggish decode" (is true (asn1-rencode 
-[:explicit 0 [:sequence [:set [:explicit 0 [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:set [:set [:set [:set [:set [:sequence [:set 1 2 3 4 1 3 4]]]]]]]]]]] [:explicit 0 [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:set [:set [:set 1 4 4 1111111111111111111 1 1 1 11 11111111111111 [:printable-string "fooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"]]]]]]]]]]]]]]]]]]]]]]]]]))))
+    (is (asn1-rencode [:explicit 0 [:sequence [:set [:explicit 0 [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:set [:set [:set [:set [:set [:sequence [:set 1 2 3 4 1 3 4]]]]]]]]]]] [:explicit 0 [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:explicit 0 [:sequence [:set [:set [:set 1 4 4 1111111111111111111 1 1 1 11 11111111111111 [:printable-string "fooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"]]]]]]]]]]]]]]]]]]]]]]]]]))))
 
+
+;;; ASN.1 pattern matching
+
+(deftest asn-pat 
+  (testing "ASN.1 AST node pattern matching and utilities"
+    (is (= true  (asn1-match? [:foo "foo"] :foo)))
+    (is (= false (asn1-match? [:foo "foo"] :bar)))
+    (is (= nil (asn1-find [:foo [:foo "foo"]] :bar)))
+    (is (= [:bar "foo"] (asn1-find [:foo [:bar "foo"]] :bar)))
+))
 
 
 ;;; Base64
 
-(deftest b64-1
-  (testing "base64 blank"
-    (is (= (base64-decode "")
-           ""))))
-
-(deftest b64-2
-  (testing "base64 a"
-    (is (= (base64-decode "YQ==")
-           "a"))))
-
-(deftest b64-3
-  (testing "base64 ab"
+(deftest b64
+  (testing "Base64 decoding"
+    (is (= (base64-decode "") 
+      ""))
+    (is (= (base64-decode "YQ==") 
+      "a"))
     (is (= (base64-decode "YWI=")
-           "ab"))))
-
-(deftest b64-4
-  (testing "base64 abc"
+           "ab"))
     (is (= (base64-decode "YWJj")
-           "abc"))))
-
-(deftest b64-5
-  (testing "base64 abcd"
+           "abc"))
     (is (= (base64-decode "YWJjZA==")
-           "abcd"))))
-
-(deftest b64-6
-  (testing "base64 HAL"
+           "abcd"))
     (is (= (base64-decode "T3BlbiB0aGUgcG9kIGJheSBkb29ycyBwbGVhc2UgSEFMIQo=")
            "Open the pod bay doors please HAL!\n"))))
 
