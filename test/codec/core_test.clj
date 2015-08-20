@@ -126,6 +126,13 @@
     (is (= [:bar "foo"] (asn1-find [:foo [:bar "foo"]] :bar)))
     (is (= [:bar [:baz "here"]] (asn1-find [:not [:here] [:bar "almost"] [:bar [:baz "here"]]] [:bar :baz])))
     (is (= true (asn1-match? [:foo 31337 () 42 [:bar] true false] [:foo :? () 42 :bar true false])))
+
+    (is (= true (asn1-match? [:set 1 2 3] [:set 3 1 2])))
+    
+    (is (= true (asn1-match? [:set 1 1] [:set 1 1])))
+
+    (is (= true (asn1-match? [:set [:set 1 2] [:set 1 2 3] [:set 1 2 4]] 
+                             [:set [:set :? 1 2] :? [:set 3 2 1]]))) ;; first has 2 options, middle 3, last one
 ))
 
 

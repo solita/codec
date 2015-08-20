@@ -627,6 +627,23 @@
 ; true/false → match corresponding boolean
 ; ()         → match null
 
+(defn each-first [lst]
+   (loop [left () lst lst opts ()]
+      (if (empty? lst)
+         opts
+         (recur (cons (first lst) left)
+            (rest lst)
+            (cons (concat lst left) opts)))))
+
+(defn match-set [asts pats rec]
+   (or (empty? pats)
+      (some
+         (fn [order] (match-set (rest order) (rest pats) rec))
+         (filter 
+            (fn [x] (rec (first x) (first pats)))
+            (each-first asts)))))
+
+
 ;; AST pattern → bool
 (defn asn1-match? [asn pat]
    (cond
@@ -639,12 +656,15 @@
          (and
             (tagged-as? asn (first pat))
             (= (count asn) (count pat))
-            (all (partial apply asn1-match?)
-               (rest (zip vector asn pat))))
-      (= asn pat) ;; integer, null, boolean
-         true
+            (if (= (first pat) :set)
+               (match-set (rest asn) (rest pat) asn1-match?)
+               (all (partial apply asn1-match?)
+                  (rest (zip vector asn pat)))))
+      (number? pat) (= pat asn)
+      (= (type pat) java.lang.Boolean) (= pat asn)
+      (= pat ()) (= pat asn)
       :true 
-         (throw (Exception. "known asn1-match pattern node: " pat))))
+         (throw (Exception. (str "known asn1-match pattern node: " pat)))))
 
 ;; AST pattern → AST' ∊ AST ∨ nil
 (defn asn1-find-left-dfs [asn pat]
