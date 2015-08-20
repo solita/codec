@@ -124,6 +124,8 @@
     (is (= false (asn1-match? [:foo "foo"] :bar)))
     (is (= nil (asn1-find [:foo [:foo "foo"]] :bar)))
     (is (= [:bar "foo"] (asn1-find [:foo [:bar "foo"]] :bar)))
+    (is (= [:bar [:baz "here"]] (asn1-find [:not [:here] [:bar "almost"] [:bar [:baz "here"]]] [:bar :baz])))
+    (is (= true (asn1-match? [:foo 31337 () 42 [:bar] true false] [:foo :? () 42 :bar true false])))
 ))
 
 

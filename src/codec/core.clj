@@ -19,6 +19,22 @@
     :true
       (recur pred (rest lst))))
 
+;; pred lst → bool
+(defn all [op lst]
+   (cond
+      (empty? lst) true
+      (op (first lst))
+         (recur op (rest lst))
+      :true false))
+
+;; silly code for silly runtime
+(defn zip [op la lb]
+   (loop [la la lb lb out ()]
+      (if (or (empty? la) (empty? lb))
+         (reverse out)
+         (recur (rest la) (rest lb)
+            (cons (op (first la) (first lb)) out)))))
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;,
@@ -604,25 +620,43 @@
 (defn tagged-as? [asn k]
   (and (vector? asn) (= (first asn) k)))
 
+;; ASN.1 pattern matching
+; :?         → match anything
+; :keyword   → match [:keyword ...]
+; 42         → match 42 (being [:integer 42])
+; true/false → match corresponding boolean
+; ()         → match null
+
 ;; AST pattern → bool
 (defn asn1-match? [asn pat]
-  (cond
-    (keyword? pat)
-      (tagged-as? asn pat)
-    :true 
-      (throw (Exception. "known asn1-match pattern node: " pat))))
+   (cond
+      (= pat :?)
+         true
+      (keyword? pat)
+         (tagged-as? asn pat)
+      (vector? pat)
+         ;; note - sets can have variable order...
+         (and
+            (tagged-as? asn (first pat))
+            (= (count asn) (count pat))
+            (all (partial apply asn1-match?)
+               (rest (zip vector asn pat))))
+      (= asn pat) ;; integer, null, boolean
+         true
+      :true 
+         (throw (Exception. "known asn1-match pattern node: " pat))))
 
 ;; AST pattern → AST' ∊ AST ∨ nil
 (defn asn1-find-left-dfs [asn pat]
-  (cond
-    (asn1-match? asn pat)
-      asn
-    (vector? asn)
-      (or
-         (first-match (fn [x] (asn1-find-left-dfs x pat)) (rest asn))
-         nil)
-    :true 
-      nil))
+   (cond
+      (asn1-match? asn pat)
+         asn
+      (vector? asn)
+         (or
+            (first-match (fn [x] (asn1-find-left-dfs x pat)) (rest asn))
+            nil)
+      :true 
+         nil))
       
 (def asn1-find 
    asn1-find-left-dfs)
