@@ -51,11 +51,22 @@
     true
     (fold (fn [last next] (if (and last (lex< last next)) next false)) (first lst) (rest lst))))
 
+;;; ClojureScript vs Clojure issues
+
 (defn fail [& whys]
-   ;(throw (js/Error. whys))
-   (throw (Exception. (apply str whys)))
+   ;(throw (js/Error. whys)) ;; ClojureScript
+   (throw (Exception. (apply str whys))) ;; Clojure
    )
-   
+  
+(defn char2ascii [x]
+   ;(.charCodeAt (str x) 0) ;; ClojureScript
+   (int x) ;; Clojure
+)
+
+(defn string2bytes [s]
+   (.getBytes s) ;; Clojure
+   ;(map char2ascii s) ;; ClojureScript
+)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;,
 ;;;
@@ -211,14 +222,14 @@
     (concat
       (identifier class-universal is-primitive tag-ia5string)
       (length-bs l)
-      (seq (.getBytes str)))))
+      (string2bytes str))))
 
 (defn encode-printable-string [str]
   (let [l (count str)]
     (concat
       (identifier class-universal is-primitive tag-printable-string)
       (length-bs l)
-      (seq (.getBytes str)))))
+      (string2bytes str))))
 
 (defn encode-octet-string [bs]
   (concat
@@ -260,7 +271,7 @@
   (concat
     (identifier class-universal is-primitive tag-utc-time)
     (length-bs (count timestr))
-    (seq (.getBytes timestr))))
+    (string2bytes timestr)))
 
 (defn asn1-encode [node]
   (cond
@@ -600,16 +611,16 @@
             (println "ENCODED: " bs)
             false))))
 
-(defn binary-slurp [x]
-  (with-open [out (java.io.ByteArrayOutputStream.)]
-    (clojure.java.io/copy (clojure.java.io/input-stream x) out)
-    (map (partial bit-and 255) (seq (.toByteArray out)))))
+;(defn binary-slurp [x]
+;  (with-open [out (java.io.ByteArrayOutputStream.)]
+;    (clojure.java.io/copy (clojure.java.io/input-stream x) out)
+;    (map (partial bit-and 255) (seq (.toByteArray out)))))
 
-(defn asn1-decode-file [path]
-  (println "reading " path)
-  (let [data (binary-slurp path)]
-    (println "read " (count data) " bytes")
-    (println path " -> " (asn1-decode data))))
+;(defn asn1-decode-file [path]
+;  (println "reading " path)
+;  (let [data (binary-slurp path)]
+;    (println "read " (count data) " bytes")
+;    (println path " -> " (asn1-decode data))))
 
 ; (asn1-decode-file "/home/aki/src/asn/asn.raw")
 
@@ -745,7 +756,6 @@
 ;; __ = =
 
 (defn base64-value [c]
-  (let [c (int c)]
     (cond
       (and (<= 48 c) (< c 58))
         (+ c 4) ;; 0-9, 52 + (c - 48) = c + 4
@@ -763,8 +773,8 @@
         :skip ;; = \r \n
       :else
         (do
-          (println "Invalid byte in base64 decoding: " c)
-          :bad))))
+          ;(println "Invalid byte in base64 decoding: " c)
+          :bad)))
 
 (defn base64-finish [val state out]
    (if (= val 0) 
@@ -808,7 +818,10 @@
             (cons (bit-or val v) out))))))
 
 (defn base64-decode-octets [instr]
-   (base64-decode-raw (map base64-value instr)))
+   ;(println "base64-decode-octets str " instr)
+   ;(println "map fn x of instr is " (map (fn [x] x) instr))
+   ;(println "map char2ascii of instr is " (map char2ascii instr))
+   (base64-decode-raw (map base64-value (map char2ascii instr))))
 
 (defn base64-decode [instr]
    (let [res (base64-decode-octets instr)]
@@ -861,11 +874,11 @@
 (defn base64-encode [input]
    (cond
       (string? input)
-         (apply str (map base64-digit (base64-encode-bytes (seq (.getBytes input)))))
-      (or (list? input) (vector? input))
+         (apply str (map base64-digit (base64-encode-bytes (string2bytes input))))
+      (seq? input)
          (apply str (map base64-digit (base64-encode-bytes input)))
       :true
-         (fail "How should I base64-encode " input "?")))
+         (fail "How should I base64-encode " input " of type " (type input) "?")))
 
 (defn base64-rencode [in]
    (let
