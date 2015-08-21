@@ -139,7 +139,7 @@
 ;;; Base64
 
 (deftest b64
-  (testing "Base64 decoding"
+  (testing "Base64 known decoding"
     (is (= (base64-decode "") 
       ""))
     (is (= (base64-decode "YQ==") 
@@ -153,4 +153,34 @@
     (is (= (base64-decode "T3BlbiB0aGUgcG9kIGJheSBkb29ycyBwbGVhc2UgSEFMIQo=")
            "Open the pod bay doors please HAL!\n"))))
 
+(deftest b64-dencode
+   (testing "Base64 binary encode + decode"
+      (is (base64-rencode (list)))
+      (is (base64-rencode (list 1)))
+      (is (base64-rencode (list 2)))
+      (is (base64-rencode (list 4)))
+      (is (base64-rencode (list 8)))
+      (is (base64-rencode (list 16)))
+      (is (base64-rencode (list 32)))
+      (is (base64-rencode (list 64)))
+      (is (base64-rencode (list 128)))
+      (is (base64-rencode (list 0 1)))
+      (is (base64-rencode (list 0 2)))
+      (is (base64-rencode (list 0 4 )))
+      (is (base64-rencode (list 0 8)))
+      (is (base64-rencode (list 0 16)))
+      (is (base64-rencode (list 0 32)))
+      (is (base64-rencode (list 0 64)))
+      (is (base64-rencode (list 0 128)))
+      (is (base64-rencode (list 0 0 1)))
+      (is (base64-rencode (list 0 0 2)))
+      (is (base64-rencode (list 0 0 4 )))
+      (is (base64-rencode (list 0 0 8)))
+      (is (base64-rencode (list 0 0 16)))
+      (is (base64-rencode (list 0 0 32)))
+      (is (base64-rencode (list 0 0 64)))
+      (is (base64-rencode (list 0 0 128)))
+      (is (base64-rencode (apply list (range 0 256))))
+      (is (base64-rencode (apply list (concat (range 0 256) (range 0 256) (remove even? (range 0 200)) (remove odd? (range 1 150)) (range 255 0)))))
+))
 

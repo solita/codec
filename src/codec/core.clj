@@ -35,7 +35,27 @@
          (recur (rest la) (rest lb)
             (cons (op (first la) (first lb)) out)))))
 
+(defn abs [n] 
+   (if (< n 0) (* n -1) n))
 
+(defn lex< [a b]
+  (cond
+    (empty? a) (not (empty? b))
+    (empty? b) false
+    (< (first a) (first b)) true
+    (= (first a) (first b)) (recur (rest a) (rest b))
+    :true false))
+
+(defn lex-sorted? [lst]
+  (if (empty? lst)
+    true
+    (fold (fn [last next] (if (and last (lex< last next)) next false)) (first lst) (rest lst))))
+
+(defn fail [& whys]
+   ;(throw (js/Error. whys))
+   (throw (Exception. (apply str whys)))
+   )
+   
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;,
 ;;;
@@ -73,7 +93,7 @@
        nd (count ds)]
       (if (< nd 128)
         (cons (bit-or 128 nd) ds)
-        (throw (Exception. "too many length bytes"))))))
+        (fail "too many length bytes")))))
 
 (defn byte2bits [tl b]
   (loop [bit 128 out tl]
@@ -129,7 +149,7 @@
       (= int 0)
         (list 1 0)
       (< int 0)
-        (throw (Exception. "negative integer"))
+        (fail "negative integer")
       :true
         (let
           [bytes (to-8bit-digits int)
@@ -169,8 +189,6 @@
       (concat
         (length-bs (count contents))
         contents))))
-
-(defn abs [n] (if (< n 0) (* n -1) n))
 
 ;; (ceil (/ x 8)), but avoid clojure/java math weirdness here
 (defn needed-bytes [bits]
@@ -223,19 +241,6 @@
       (length-bs (count bs))
       bs)))
 
-(defn lex< [a b]
-  (cond
-    (empty? a) (not (empty? b))
-    (empty? b) false
-    (< (first a) (first b)) true
-    (= (first a) (first b)) (recur (rest a) (rest b))
-    :true false))
-
-(defn lex-sorted? [lst]
-  (if (empty? lst)
-    true
-    (fold (fn [last next] (if (and last (lex< last next)) next false)) (first lst) (rest lst))))
-
 ;; as encode-set, but order is lexicographic
 (defn encode-set-of [& encoded]
   (let [bs (apply concat (sort lex< encoded))]
@@ -274,19 +279,19 @@
           (= op :ia5string)
             (if (= (count node) 2)
               (encode-ia5string (nth node 1))
-              (throw (Exception. ":ia5string wants one string element")))
+              (fail ":ia5string wants one string element"))
           (= op :octet-string)
             (if (= (count node) 2)
               (encode-octet-string (nth node 1))
-              (throw (Exception. ":octet-string wants one list element")))
+              (fail ":octet-string wants one list element"))
           (= op :bit-string)
             (if (= (count node) 2)
               (encode-bitstring (nth node 1))
-              (throw (Exception. ":bit-string wants one string element")))
+              (fail ":bit-string wants one string element"))
           (= op :printable-string)
             (if (= (count node) 2)
               (encode-printable-string (nth node 1))
-              (throw (Exception. ":printable-string wants one string element")))
+              (fail ":printable-string wants one string element"))
           (= op :identifier)
             (encode-object-identifier (rest node))
           (= op :encapsulated-octet-string)
@@ -294,20 +299,20 @@
             (if (= (count node) 2)
               (encode-octet-string 
                 (asn1-encode (nth node 1)))
-              (throw (Exception. ":encapsulated-octet-string requires one argument (did you want a sequence?)")))
+              (fail ":encapsulated-octet-string requires one argument (did you want a sequence?)"))
           (= op :encapsulated-bitstring)
             ;; these are just bitstrings which happen to have valid content
             (if (= (count node) 2)
               (encode-bitstring 
                 (bytes2bitstring
                   (asn1-encode (nth node 1))))
-              (throw (Exception. ":encapsulated-bitstring requires one argument (did you want a sequence?)")))
+              (fail ":encapsulated-bitstring requires one argument (did you want a sequence?)"))
           (= op :utctime)
             (if (= (count node) 2)
               (encode-utc-time (nth node 1))
-              (throw (Exception. ":utctime wants one string element")))
+              (fail ":utctime wants one string element"))
           :true
-            (throw (Exception. "Unknown ASN.1 operator"))))
+            (fail "Unknown ASN.1 operator")))
     (integer? node)
       (encode-integer node)
     (string? node)
@@ -319,7 +324,7 @@
     (= node ())
       encode-null
     :true
-      (throw (Exception. "Unknown ASN.1 encoder node type: " node))))
+      (fail "Unknown ASN.1 encoder node type: " node)))
 
 
 
@@ -571,7 +576,6 @@
              (vector false (str "Failed to read identifier: " class) bs)))
        (vector false "no input" bs))))
 
-
 (defn asn1-decode [bs]
   (let [[ok value bs] (decode bs)]
     (if ok
@@ -635,6 +639,7 @@
             (rest lst)
             (cons (concat lst left) opts)))))
 
+;; fuzzing note: degenerate inputs make this go exponential
 (defn match-set [asts pats rec]
    (or (empty? pats)
       (some
@@ -642,7 +647,6 @@
          (filter 
             (fn [x] (rec (first x) (first pats)))
             (each-first asts)))))
-
 
 ;; AST pattern → bool
 (defn asn1-match? [asn pat]
@@ -664,7 +668,7 @@
       (= (type pat) java.lang.Boolean) (= pat asn)
       (= pat ()) (= pat asn)
       :true 
-         (throw (Exception. (str "known asn1-match pattern node: " pat)))))
+         (fail (str "known asn1-match pattern node: " pat))))
 
 ;; AST pattern → AST' ∊ AST ∨ nil
 (defn asn1-find-left-dfs [asn pat]
@@ -763,10 +767,8 @@
           :bad))))
 
 (defn base64-finish [val state out]
-  (cond
-    (= val 0)
-      (apply str (map char (reverse out)))
-    :else
+   (if (= val 0) 
+      (reverse out)
       nil))
 
 ;            0     1    2     3    decoder states
@@ -775,12 +777,8 @@
 ; output  '------''------''------' to output
 ;            0        1      2     encoder states
 
-(defn base64-decode [data]
-  (loop
-    [data (map base64-value data)
-     state 0
-     val 0
-     out ()]
+(defn base64-decode-raw [data]
+  (loop [data data state 0 val 0 out ()]
     (let [[v & data] data]
       (cond
         (= v :skip)
@@ -809,17 +807,77 @@
           (recur data 0 0
             (cons (bit-or val v) out))))))
 
+(defn base64-decode-octets [instr]
+   (base64-decode-raw (map base64-value instr)))
+
+(defn base64-decode [instr]
+   (let [res (base64-decode-octets instr)]
+      (if res (apply str (map char res)) nil)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;,
+;;;
+;;; Base64 encoder
+;;;
+
+;; digit in range → char in encoding
 (defn base64-digit [b]
-  (if (== b (bit-and b 63))
-    (char
+   (cond
+      (= b \=) b
+      (== b (bit-and b 63))
+       (char
+         (cond
+           (< b 26) (+ b 65)
+           (< b 52) (+ b 71)
+           (< b 62) (- b 4)
+           (= b 62) 43
+           :else 47))
+      :true
+         (do
+            (println "Bad base64 digit: " b)
+            false)))
+
+(defn base64-encode-bytes [l]
+   (let [[a b c & l] l]
       (cond
-        (< b 26) (+ b 65)
-        (< b 52) (- b 70)
-        (< b 62) (+ b 4)
-        (= b 62) 43
-        :else 47))
-    (throw
-      (Exception. "invalid input to base64 encode"))))
+         (nil? a)
+            ()
+         (nil? b)
+            (list (bit-shift-right a 2) ;; top 6 bits
+                  (bit-and 63 (bit-shift-left (bit-and a 3) 4))  ;; low 2 bits
+                  \= \=)
+         (nil? c)
+            (list (bit-shift-right a 2) ;; top 6 bits
+                  (bit-and 63 (bit-or (bit-shift-left a 4) (bit-shift-right b 4))) ;; low 2 + top 4
+                  (bit-and 63 (bit-shift-left b 2)) ;; low 2
+                  \=)
+         :true
+            ;; tocheck: is there a standard (ilist <elem> ... <tail>) in clojure?
+            (cons (bit-shift-right a 2) ;; top 6 bits
+             (cons (bit-and 63 (bit-or (bit-shift-left a 4) (bit-shift-right b 4))) ;; low 2 + top 4
+              (cons (bit-and 63 (bit-or (bit-shift-left b 2) (bit-shift-right c 6)))
+               (cons (bit-and c 63) (base64-encode-bytes l))))))))
+
+(defn base64-encode [input]
+   (cond
+      (string? input)
+         (apply str (map base64-digit (base64-encode-bytes (seq (.getBytes input)))))
+      (or (list? input) (vector? input))
+         (apply str (map base64-digit (base64-encode-bytes input)))
+      :true
+         (fail "How should I base64-encode " input "?")))
+
+(defn base64-rencode [in]
+   (let
+      [encd (base64-encode in)
+       out  (base64-decode-octets encd)]
+      (if (= in out)
+         true
+         (do
+            (println "Base64 error: input " in)
+            (println "             output " out)
+            (println "            encoded " encd)
+            false))))
 
 
 
