@@ -64,8 +64,8 @@
 )
 
 (defn string2bytes [s]
-   (.getBytes s) ;; Clojure
    ;(map char2ascii s) ;; ClojureScript
+   (.getBytes s) ;; Clojure
 )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;,
@@ -287,6 +287,10 @@
             (apply encode-set-of (map asn1-encode (rest node)))
           (= op :explicit)
             (apply encode-explicit (cons (nth node 1) (map asn1-encode (rest (rest node)))))
+          (= op :quote)
+            (if (= (count node) 2)
+               (nth node 1)
+              (fail ":quote requires one pre-encoded argument"))
           (= op :ia5string)
             (if (= (count node) 2)
               (encode-ia5string (nth node 1))
@@ -851,25 +855,31 @@
             false)))
 
 (defn base64-encode-bytes [l]
-   (let [[a b c & l] l]
-      (cond
-         (nil? a)
-            ()
-         (nil? b)
-            (list (bit-shift-right a 2) ;; top 6 bits
-                  (bit-and 63 (bit-shift-left (bit-and a 3) 4))  ;; low 2 bits
-                  \= \=)
-         (nil? c)
-            (list (bit-shift-right a 2) ;; top 6 bits
-                  (bit-and 63 (bit-or (bit-shift-left a 4) (bit-shift-right b 4))) ;; low 2 + top 4
-                  (bit-and 63 (bit-shift-left b 2)) ;; low 2
-                  \=)
-         :true
-            ;; tocheck: is there a standard (ilist <elem> ... <tail>) in clojure?
-            (cons (bit-shift-right a 2) ;; top 6 bits
-             (cons (bit-and 63 (bit-or (bit-shift-left a 4) (bit-shift-right b 4))) ;; low 2 + top 4
-              (cons (bit-and 63 (bit-or (bit-shift-left b 2) (bit-shift-right c 6)))
-               (cons (bit-and c 63) (base64-encode-bytes l))))))))
+   (loop [l l out (list)]
+      (let [[a b c & l] l]
+         (cond
+            (nil? a)
+               (reverse out)
+            (nil? b)
+               (reverse (concat (list \= \=
+                     (bit-and 63 (bit-shift-left (bit-and a 3) 4))  ;; low 2 bits
+                     (bit-shift-right a 2)) ;; top 6 bits
+                     out))
+            (nil? c)
+               (reverse
+                  (concat (list \=
+                     (bit-and 63 (bit-shift-left b 2)) ;; low 2
+                     (bit-and 63 (bit-or (bit-shift-left a 4) (bit-shift-right b 4))) ;; low 2 + top 4
+                     (bit-shift-right a 2)) ;; top 6 bits
+                     out))
+            :true
+               ;; tocheck: is there a standard (ilist <elem> ... <tail>) in clojure?
+               (recur l
+                  (cons (bit-and c 63) 
+                 (cons (bit-and 63 (bit-or (bit-shift-left b 2) (bit-shift-right c 6)))
+                (cons (bit-and 63 (bit-or (bit-shift-left a 4) (bit-shift-right b 4))) ;; low 2 + top 4
+               (cons (bit-shift-right a 2) ;; top 6 bits
+                     out)))))))))
 
 (defn base64-encode [input]
    (cond
