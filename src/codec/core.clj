@@ -11,13 +11,11 @@
     (recur op (op st (first lst)) (rest lst))))
 
 (defn first-match [pred lst]
-  (cond
-    (empty? lst)
+  (if (empty? lst)
       false
-    (pred (first lst))
-      (first lst)
-    :true
-      (recur pred (rest lst))))
+      (let [val (pred (first lst))]
+         (if val val
+            (recur pred (rest lst))))))
 
 ;; pred lst → bool
 (defn all [op lst]
@@ -680,8 +678,9 @@
                (all (partial apply asn1-match?)
                   (rest (zip vector asn pat)))))
       (number? pat) (= pat asn)
-      (= (type pat) java.lang.Boolean) (= pat asn)
+      (or (= pat true) (= pat false)) (= pat asn)
       (= pat ()) (= pat asn)
+      (string? pat) (= pat asn)
       :true 
          (fail (str "known asn1-match pattern node: " pat))))
 
